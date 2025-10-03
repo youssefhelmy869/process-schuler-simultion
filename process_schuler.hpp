@@ -37,6 +37,9 @@ public:
     {
         // make process id
         int temp_process_id = randomFiveDigit();
+        for(auto process_id_present:process_table){
+            
+        }
         process_control_block *temp_ptr = new process_control_block(size, para_priorty, process_name, process_id);
         return temp_ptr;
     }
