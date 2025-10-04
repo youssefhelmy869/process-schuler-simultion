@@ -35,6 +35,7 @@ public:
     vector<process_control_block *> waiting_list;
     thread cpu_thread;
     processer_core cpu;
+    process_control_block *running_process;
 
     process_control_block *create_process(
         string process_name, int size = 1024,
@@ -91,6 +92,7 @@ public:
     void run_a_process()
     {
         process_control_block *process_to_run = waiting_list[0];
+        running_process = process_to_run;
         cpu_thread = thread(&processer_core::run_commands, &cpu, process_to_run);
 
         //
@@ -98,8 +100,7 @@ public:
     void inrupt_thread(thread &para_thread) // intrupt thread
     {
         HANDLE handle = (HANDLE)para_thread.native_handle(); // make it a native thread
-
-        TerminateThread(handle, 0);
+        save_cpu_state_to_process(handle, running_process);
 
         DWORD exitCode;
 
@@ -107,8 +108,14 @@ public:
         {
             cout << "thread termaited susfully" << endl;
         }
-        CloseHandle(handle);
 
         para_thread.detach();
+        TerminateThread(handle, 0);
+        CloseHandle(handle);
+    }
+    void save_cpu_state_to_process(HANDLE handle_thread, process_control_block *process)
+    {
+        DWORD suspended = SuspendThread(handle_thread);
+        save_cpu_state(handle_thread, &process->cpu_state);
     }
 };

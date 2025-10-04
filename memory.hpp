@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <windows.h>
+#include <thread>
 #pragma once
 
 using namespace std;
@@ -82,56 +83,155 @@ struct address_space
 
 struct cpu_regs
 {
+#ifdef _WIN64
+    DWORD64 rax, rbx, rcx, rdx, rsi, rdi, rbp, rsp, rip;
+    M128A xmm[16]; // 128-bit SIMD registers
+#else
     DWORD eax, ebx, ecx, edx, esi, edi, ebp, esp, eip;
+    BYTE extended[512]; // raw FPU/SSE data (legacy x86 format)
+#endif
+    WORD fpuControlWord;
+    WORD fpuStatusWord;
+    WORD mxcsr;
     void print_regs()
     {
-        cout << eax << endl;
-        cout << ebx << endl;
-        cout << ecx << endl;
-        cout << edx << endl;
-        cout << esi << endl;
-        cout << edi << endl;
-        cout << ebp << endl;
-        cout << esp << endl;
+        cout << rax << endl;
+        cout << rbx << endl;
+        cout << rcx << endl;
+        cout << rdx << endl;
+        cout << rsi << endl;
+        cout << rdi << endl;
+        cout << rbp << endl;
+        cout << rsp << endl;
+        cout << rip << endl;
     }
 };
 
-void save_cpu_state(cpu_regs *cpu_state)
+bool save_cpu_state(HANDLE thread_handle, cpu_regs *out)
 {
+    CONTEXT ctx;
+    ctx.ContextFlags = CONTEXT_FULL;
 
-    asm("mov %%eax, %0\n\t"
-        "mov %%ebx, %1\n\t"
-        "mov %%ecx, %2\n\t"
-        "mov %%edx, %3\n\t"
-        "mov %%esi, %4\n\t"
-        "mov %%edi, %5\n\t"
-        "mov %%ebp, %6"
+    if (SuspendThread(thread_handle) == -1)
+    {
+        return false;
+    }
+    if (!GetThreadContext(thread_handle, &ctx))
+    {
 
-        : "=r"(cpu_state->eax),
-          "=r"(cpu_state->ebx),
-          "=r"(cpu_state->ecx),
-          "=r"(cpu_state->edx),
-          "=r"(cpu_state->esi),
-          "=r"(cpu_state->edi),
-          "=r"(cpu_state->ebp)
+        return false;
+    }
 
-    );
-    asm volatile("mov %%esp, %0" : "=r"(cpu_state->esp));
+#ifdef _WIN64
+    out->rax = ctx.Rax;
+    out->rbx = ctx.Rbx;
+    out->rcx = ctx.Rcx;
+    out->rdx = ctx.Rdx;
+    out->rsi = ctx.Rsi;
+    out->rdi = ctx.Rdi;
+    out->rbp = ctx.Rbp;
+    out->rsp = ctx.Rsp;
+    out->rip = ctx.Rip;
+
+    // Copy XMM registers individually
+    out->xmm[0] = ctx.Xmm0;
+    out->xmm[1] = ctx.Xmm1;
+    out->xmm[2] = ctx.Xmm2;
+    out->xmm[3] = ctx.Xmm3;
+    out->xmm[4] = ctx.Xmm4;
+    out->xmm[5] = ctx.Xmm5;
+    out->xmm[6] = ctx.Xmm6;
+    out->xmm[7] = ctx.Xmm7;
+    out->xmm[8] = ctx.Xmm8;
+    out->xmm[9] = ctx.Xmm9;
+    out->xmm[10] = ctx.Xmm10;
+    out->xmm[11] = ctx.Xmm11;
+    out->xmm[12] = ctx.Xmm12;
+    out->xmm[13] = ctx.Xmm13;
+    out->xmm[14] = ctx.Xmm14;
+    out->xmm[15] = ctx.Xmm15;
+
+    out->fpuControlWord = ctx.FltSave.ControlWord;
+    out->fpuStatusWord = ctx.FltSave.StatusWord;
+    out->mxcsr = ctx.FltSave.MxCsr;
+
+#else
+    out->eax = ctx.Eax;
+    out->ebx = ctx.Ebx;
+    out->ecx = ctx.Ecx;
+    out->edx = ctx.Edx;
+    out->esi = ctx.Esi;
+    out->edi = ctx.Edi;
+    out->ebp = ctx.Ebp;
+    out->esp = ctx.Esp;
+    out->eip = ctx.Eip;
+    memcpy(out->extended, ctx.ExtendedRegisters, sizeof(ctx.ExtendedRegisters));
+#endif
+
+    return true;
 }
 
-void load_cpu_state(cpu_regs *cpu_state)
+bool load_cpu_state(HANDLE thread_handle, cpu_regs *in)
 {
+    CONTEXT ctx;
+    ctx.ContextFlags = CONTEXT_FULL;
 
-    asm("movl %0, %%eax\n\t"
-        "movl %1, %%ebx\n\t"
-        "movl %2, %%ecx\n\t"
-        "movl %3, %%edx\n\t"
-        "movl %4, %%esi\n\t"
-        "movl %5, %%edi\n\t"
+    if (SuspendThread(thread_handle) == -1)
+    {
+        return false;
+    }
+    if (!GetThreadContext(thread_handle, &ctx))
+    {
 
-        :
-        : "r"(cpu_state->eax), "r"(cpu_state->ebx), "r"(cpu_state->ecx), "r"(cpu_state->edx), "r"(cpu_state->esi), "r"(cpu_state->edi)
-        : "%eax", "%ebx", "%ecx", "%edx", "%esi", "%edi");
+        return false;
+    }
 
-    cpu_state->ebp = (uintptr_t)__builtin_frame_address(0);
+#ifdef _WIN64
+    ctx.Rax = in->rax;
+    ctx.Rbx = in->rbx;
+    ctx.Rcx = in->rcx;
+    ctx.Rdx = in->rdx;
+    ctx.Rsi = in->rsi;
+    ctx.Rdi = in->rdi;
+    ctx.Rbp = in->rbp;
+    ctx.Rsp = in->rsp;
+    ctx.Rip = in->rip;
+
+    ctx.Xmm0 = in->xmm[0];
+    ctx.Xmm1 = in->xmm[1];
+    ctx.Xmm2 = in->xmm[2];
+    ctx.Xmm3 = in->xmm[3];
+    ctx.Xmm4 = in->xmm[4];
+    ctx.Xmm5 = in->xmm[5];
+    ctx.Xmm6 = in->xmm[6];
+    ctx.Xmm7 = in->xmm[7];
+    ctx.Xmm8 = in->xmm[8];
+    ctx.Xmm9 = in->xmm[9];
+    ctx.Xmm10 = in->xmm[10];
+    ctx.Xmm11 = in->xmm[11];
+    ctx.Xmm12 = in->xmm[12];
+    ctx.Xmm13 = in->xmm[13];
+    ctx.Xmm14 = in->xmm[14];
+    ctx.Xmm15 = in->xmm[15];
+
+    ctx.FltSave.ControlWord = in->fpuControlWord;
+    ctx.FltSave.StatusWord = in->fpuStatusWord;
+    ctx.FltSave.MxCsr = in->mxcsr;
+
+#else
+    ctx.Eax = in->eax;
+    ctx.Ebx = in->ebx;
+    ctx.Ecx = in->ecx;
+    ctx.Edx = in->edx;
+    ctx.Esi = in->esi;
+    ctx.Edi = in->edi;
+    ctx.Ebp = in->ebp;
+    ctx.Esp = in->esp;
+    ctx.Eip = in->eip;
+    memcpy(ctx.ExtendedRegisters, in->extended, sizeof(ctx.ExtendedRegisters));
+#endif
+
+    bool ok = SetThreadContext(thread_handle, &ctx);
+
+    return ok;
 }
