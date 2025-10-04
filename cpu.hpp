@@ -5,7 +5,7 @@
 #include "process.hpp"
 #pragma once
 
-class cpu
+class processer_core
 {
 public:
     void run_commands(char *code, size_t size)
@@ -59,9 +59,7 @@ public:
     void run(process_control_block *process, std::atomic<bool> &stop_flag)
     {
         process->state = process_control_block::process_state::RUNNING;
-        while (!stop_flag)
-        {
-            run_commands(process->ptr_address_space->text_sec, process->ptr_address_space->text_sec_size);
-        }
+
+        run_commands(process->ptr_address_space->text_sec, process->ptr_address_space->text_sec_size);
     }
 };

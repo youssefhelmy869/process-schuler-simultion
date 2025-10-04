@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <iostream>
+#include <windows.h>
 #pragma once
 
 using namespace std;
@@ -81,15 +82,7 @@ struct address_space
 
 struct cpu_regs
 {
-    int eax;
-    int ebx;
-    int ecx;
-    int edx;
-    int esi;
-    int edi;
-    int ebp;
-    int esp;
-
+    DWORD eax, ebx, ecx, edx, esi, edi, ebp, esp, eip;
     void print_regs()
     {
         cout << eax << endl;
@@ -135,13 +128,10 @@ void load_cpu_state(cpu_regs *cpu_state)
         "movl %3, %%edx\n\t"
         "movl %4, %%esi\n\t"
         "movl %5, %%edi\n\t"
-        
+
         :
         : "r"(cpu_state->eax), "r"(cpu_state->ebx), "r"(cpu_state->ecx), "r"(cpu_state->edx), "r"(cpu_state->esi), "r"(cpu_state->edi)
         : "%eax", "%ebx", "%ecx", "%edx", "%esi", "%edi");
 
-
-
-        cpu_state->ebp = (uintptr_t)__builtin_frame_address(0);
-
+    cpu_state->ebp = (uintptr_t)__builtin_frame_address(0);
 }

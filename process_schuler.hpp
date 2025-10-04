@@ -1,10 +1,13 @@
 #include <vector>
 #include "process.hpp"
 #include "memory.hpp"
+#include "cpu.hpp"
 #include <map>
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <thread>
+#include <windows.h>
 
 #pragma once
 
@@ -29,6 +32,9 @@ class process_schuler
 public:
     vector<process_control_block *> process_list;
     map<string, int> process_table;
+    vector<process_control_block *> waiting_list;
+    thread cpu_thread;
+    processer_core cpu;
 
     process_control_block *create_process(
         string process_name, int size = 1024,
@@ -81,5 +87,28 @@ public:
             cout << "Process " << ptr->process_name << " has ID " << ptr->process_id << " at address " << ptr << " and has a proirty of " << ptr->print_priority(ptr->importance) << endl;
             ;
         }
+    }
+    void run_a_process()
+    {
+        process_control_block *process_to_run = waiting_list[0];
+        cpu_thread = thread(&processer_core::run_commands, &cpu, process_to_run);
+
+        //
+    }
+    void inrupt_thread(thread &para_thread) // intrupt thread
+    {
+        HANDLE handle = (HANDLE)para_thread.native_handle(); // make it a native thread
+
+        TerminateThread(handle, 0);
+
+        DWORD exitCode;
+
+        if (GetExitCodeThread(handle, &exitCode))
+        {
+            cout << "thread termaited susfully" << endl;
+        }
+        CloseHandle(handle);
+
+        para_thread.detach();
     }
 };
