@@ -23,10 +23,11 @@ int randomFiveDigit()
     // Always return a 5-digit number
     return 10000 + (std::rand() % 90000);
 }
+
 class process_schuler
 {
 public:
-    vector<process_control_block> process_list;
+    vector<process_control_block *> process_list;
     map<string, int> process_table;
 
     process_control_block *create_process(
@@ -37,10 +38,48 @@ public:
     {
         // make process id
         int temp_process_id = randomFiveDigit();
-        for(auto process_id_present:process_table){
-            
+        bool unique = false;
+        while (unique == false)
+        {
+            unique = true;
+            for (auto &pair : process_table)
+            {
+                if (pair.second == temp_process_id)
+                {
+                    temp_process_id = randomFiveDigit();
+                    unique = false;
+                    break;
+                }
+            }
         }
+        process_id = temp_process_id;
         process_control_block *temp_ptr = new process_control_block(size, para_priorty, process_name, process_id);
+        temp_ptr->state = process_control_block::process_state::NEW;
+
+        process_table[process_name] = process_id;
+
+        process_list.push_back(temp_ptr);
         return temp_ptr;
+    }
+    void debug()
+    {
+        cout << "============================================================================================================================" << endl;
+        cout << "process list" << endl;
+        int process_list_size = process_list.size();
+        for (int i = 0; i < process_list_size; ++i)
+        {
+            cout << "Process number " << i << " is at address " << process_list[i] << endl;
+        }
+        cout << "==================Proccess table==================" << endl;
+        for (auto pair : process_table)
+        {
+            cout << "Process " << pair.first << " has ID of " << pair.second << endl;
+        }
+        cout << "============================================================================================================================" << endl;
+        for (process_control_block *ptr : process_list)
+        {
+            cout << "Process " << ptr->process_name << " has ID " << ptr->process_id << " at address " << ptr << " and has a proirty of " << ptr->print_priority(ptr->importance) << endl;
+            ;
+        }
     }
 };

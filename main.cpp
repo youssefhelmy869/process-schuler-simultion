@@ -1,11 +1,12 @@
-#include "memory.hpp"
+#include "process_schuler.hpp"
 
 int main()
 {
-    cpu_regs *regs = new cpu_regs;
+    process_schuler p;
+    p.create_process("word");
+    p.create_process("excel");
+    p.create_process("vs code");
+    p.debug();
 
-    load_cpu_state(regs);
-    regs->print_regs();
-    save_cpu_state(regs);
     return 0;
 }

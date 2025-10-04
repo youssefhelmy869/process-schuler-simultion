@@ -22,6 +22,25 @@ struct process_control_block
         BACKGROUD
 
     } importance;
+    string print_priority(priority para)
+    {
+        if (para == priority::TOP)
+        {
+            return "TOP";
+        }
+        else if (para == priority::MIDDLE)
+        {
+            return "MIIDLE";
+        }
+        else if (para == priority::SYSTEM)
+        {
+            return "SYSTEM";
+        }
+        else if (para == priority::BACKGROUD)
+        {
+            return "BACKGROUND";
+        }
+    }
 
     string process_name;
     int process_id;
@@ -57,7 +76,6 @@ struct process_control_block
         time_to_excute = (ptr_address_space->size * 2);
         process_id = para_process_id;
         // simulate 16 general-purpose registers
-
     }
 
     ~process_control_block()
